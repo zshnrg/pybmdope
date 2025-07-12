@@ -8,13 +8,15 @@ It provides functionalities for encrypting and decrypting data using the BMDOPE 
 from bmdope.key import split_key
 
 class BMDOPE:
-    def __init__(self, key: str):
+    def __init__(self, key: bytes):
+        if not isinstance(key, bytes):
+            raise ValueError("Key must be a bytes object.")
         if len(key) != 16:
             raise ValueError("Key must be exactly 16 characters long.")
         self.key = key
         self.__current_key = key
     
-    def encrypt_block(self, block: bytes, key: str) -> bytes:
+    def encrypt_block(self, block: bytes, key: bytes) -> bytes:
         """
         Encrypts a 4-byte block using a 16-character key.
         
@@ -31,9 +33,11 @@ class BMDOPE:
             bytes: The encrypted data as a binary string encoded in UTF-8.
         
         Raises:
-            ValueError: If the provided key is not 16 characters long or if the
-                        block size exceeds 4 bytes.
+            ValueError: If the provided key is not in bytes format, 
+                        is not 16 characters long, or if the block size exceeds 4 bytes.
         """
+        if not isinstance(key, bytes):
+            raise ValueError("Key must be a bytes object.")
         if len(key) != 16:
             raise ValueError("Invalid key size.")
         if len(block) > 4:
@@ -43,14 +47,14 @@ class BMDOPE:
         value = int.from_bytes(block, 'big')
         
         for i in range(4):
-            value += int.from_bytes(parts[i].encode('utf-8'), 'big')
+            value += int.from_bytes(parts[i])
             if i != 3:
-                shift_value = int.from_bytes(shifts[i].encode('utf-8'), 'big') & 0b11111
+                shift_value = shifts[i] & 0b11111
                 value <<= shift_value
         
         return bin(value)[2:].encode()
 
-    def decrypt_block(self, encrypted_value: bytes, key: str) -> bytes:
+    def decrypt_block(self, encrypted_value: bytes, key: bytes) -> bytes:
         """
         Decrypts a single block of data using a provided key.
         
@@ -65,12 +69,14 @@ class BMDOPE:
                 encrypted integer.
             key (str): The 16-character string key used for decryption.
         
-        Raises:
-            ValueError: If the provided key is not exactly 16 characters long.
-        
         Returns:
             bytes: The decrypted data as a 4-byte block in big-endian format.
+        
+        Raises:
+            ValueError: If the provided key is in bytes format or is not 16 characters long.
         """
+        if not isinstance(key, bytes):
+            raise ValueError("Key must be a bytes object.")
         if len(key) != 16:
             raise ValueError("Invalid key size.")
         
@@ -79,9 +85,9 @@ class BMDOPE:
         
         for i in range(3, -1, -1):
             if i != 3:
-                shift_value = int.from_bytes(shifts[i].encode('utf-8'), 'big') & 0b11111
+                shift_value = shifts[i] & 0b11111
                 value >>= shift_value
-            value -= int.from_bytes(parts[i].encode('utf-8'), 'big')
+            value -= int.from_bytes(parts[i])
         
         byte_length = (value.bit_length() + 7) // 8 if value > 0 else 1
         return value.to_bytes(byte_length, 'big')
