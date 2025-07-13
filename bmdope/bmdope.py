@@ -6,15 +6,20 @@ It provides functionalities for encrypting and decrypting data using the BMDOPE 
 """
 
 from bmdope.key import split_key
+import os
 
 class BMDOPE:
-    def __init__(self, key: bytes):
+    def __init__(self, key: bytes, iv: bytes = None):
         if not isinstance(key, bytes):
             raise ValueError("Key must be a bytes object.")
         if len(key) != 16:
             raise ValueError("Key must be exactly 16 characters long.")
+        if iv is not None and not isinstance(iv, bytes) and len(iv) != 16:
+            raise ValueError("IV must be 16 bytes long if provided.")
+        
         self.key = key
         self.__current_key = key
+        self.iv = iv if iv is not None else os.urandom(16)
     
     def encrypt_block(self, block: bytes, key: bytes) -> bytes:
         """
@@ -91,3 +96,15 @@ class BMDOPE:
         
         byte_length = (value.bit_length() + 7) // 8 if value > 0 else 1
         return value.to_bytes(byte_length, 'big')
+    
+    @staticmethod
+    def generate_key() -> bytes:
+        """
+        Generates a random 16-byte key for encryption.
+        
+        This method uses the os.urandom function to generate a secure random key.
+        
+        Returns:
+            bytes: A 16-byte random key suitable for encryption.
+        """
+        return os.urandom(16)

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="py-bmdope",
-    version="0.0.2",
+    version="0.0.3",
     author="Rozan Ghosani",
     author_email="ghosanirozan1@gmail.com",
     description="A Block Metadata-Driven Order-Preserving Encryption (BMDOPE)",
@@ -18,5 +18,6 @@ setup(
     ],
     python_requires=">=3.6",
     install_requires=[
+        "cryptography>=41.0.0",
     ],
 )
