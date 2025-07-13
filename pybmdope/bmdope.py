@@ -5,9 +5,9 @@ py-bmdope is a Python package for Block Metadata-Driven Order-Preserving Encrypt
 It provides functionalities for encrypting and decrypting data using the BMDOPE algorithm.
 """
 
-from bmdope.key import split_key, reshuffle
-from bmdope.metadata import encrypt_metadata, decrypt_metadata
-from bmdope.util import binary_to_bytes, bytes_to_binary
+from pybmdope.key import split_key, reshuffle
+from pybmdope.metadata import encrypt_metadata, decrypt_metadata
+from pybmdope.util import binary_to_bytes, bytes_to_binary
 import os
 
 class BMDOPE:
@@ -94,7 +94,7 @@ class BMDOPE:
         value = int.from_bytes(block, 'big')
         
         for i in range(4):
-            value += int.from_bytes(parts[i])
+            value += int.from_bytes(parts[i], 'big')
             if i != 3:
                 shift_value = shifts[i] & 0b11111
                 value <<= shift_value
@@ -134,7 +134,7 @@ class BMDOPE:
             if i != 3:
                 shift_value = shifts[i] & 0b11111
                 value >>= shift_value
-            value -= int.from_bytes(parts[i])
+            value -= int.from_bytes(parts[i], 'big')
         
         byte_length = (value.bit_length() + 7) // 8 if value > 0 else 1
         return value.to_bytes(byte_length, 'big')

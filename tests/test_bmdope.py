@@ -1,5 +1,5 @@
 import unittest
-from bmdope.bmdope import BMDOPE
+from pybmdope.bmdope import BMDOPE
 
 class TestBMDOPE(unittest.TestCase):
     def setUp(self):

@@ -1,5 +1,5 @@
 import unittest
-from bmdope.key import reshuffle, split_key, rotate_left, rotate_right
+from pybmdope.key import reshuffle, split_key, rotate_left, rotate_right
 
 class TestKeyModule(unittest.TestCase):
     def test_reshuffle(self):

@@ -1,6 +1,6 @@
 import unittest
 import os
-from bmdope.metadata import encrypt_metadata, decrypt_metadata
+from pybmdope.metadata import encrypt_metadata, decrypt_metadata
 
 
 class TestMetadata(unittest.TestCase):
