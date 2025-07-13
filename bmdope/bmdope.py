@@ -5,7 +5,9 @@ py-bmdope is a Python package for Block Metadata-Driven Order-Preserving Encrypt
 It provides functionalities for encrypting and decrypting data using the BMDOPE algorithm.
 """
 
-from bmdope.key import split_key
+from bmdope.key import split_key, reshuffle
+from bmdope.metadata import encrypt_metadata, decrypt_metadata
+from bmdope.util import binary_to_bytes, bytes_to_binary
 import os
 
 class BMDOPE:
@@ -20,6 +22,46 @@ class BMDOPE:
         self.key = key
         self.__current_key = key
         self.iv = iv if iv is not None else os.urandom(16)
+        
+    def encrypt(self, data: bytes) -> bytes:
+        """
+        Encrypts the given data using the BMDOPE algorithm.
+        """
+        self.current_key = self.key
+        blocks = [data[i:i+4] for i in range(0, len(data), 4)]
+        
+        encrypted_blocks = b''
+        metadata = []
+        
+        for block in blocks:
+            encrypted_block = self.encrypt_block(block, self.current_key)
+            encrypted_blocks += encrypted_block
+            metadata.append(len(encrypted_block))
+            self.current_key = reshuffle(self.current_key)
+        
+        encrypted_metadata = encrypt_metadata(metadata, self.key, self.iv)
+        
+        encrypted_blocks = binary_to_bytes(encrypted_blocks)
+        return encrypted_blocks + encrypted_metadata
+        
+    def decrypt(self, encrypted_data: bytes) -> bytes:
+        """
+        Decrypts the given encrypted data using the BMDOPE algorithm.
+        """
+        self.current_key = self.key
+        decrypted_data = b''
+        
+        metadata = decrypt_metadata(encrypted_data, self.key, self.iv)
+        binary_data = bytes_to_binary(encrypted_data)
+        
+        cursor = 0
+        for length in metadata:
+            slice_bits = binary_data[cursor:cursor + length]
+            decrypted_data += self.decrypt_block(slice_bits, self.current_key)
+            cursor += length
+            self.current_key = reshuffle(self.current_key)
+        
+        return decrypted_data
     
     def encrypt_block(self, block: bytes, key: bytes) -> bytes:
         """
