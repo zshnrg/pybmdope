@@ -27,17 +27,17 @@ class BMDOPE:
         """
         Encrypts the given data using the BMDOPE algorithm.
         """
-        self.current_key = self.key
+        self.__current_key = self.key
         blocks = [data[i:i+4] for i in range(0, len(data), 4)]
         
         encrypted_blocks = b''
         metadata = []
         
         for block in blocks:
-            encrypted_block = self.encrypt_block(block, self.current_key)
+            encrypted_block = self.encrypt_block(block, self.__current_key)
             encrypted_blocks += encrypted_block
             metadata.append(len(encrypted_block))
-            self.current_key = reshuffle(self.current_key)
+            self.__current_key = reshuffle(self.__current_key)
         
         encrypted_metadata = encrypt_metadata(metadata, self.key, self.iv)
         
@@ -48,7 +48,7 @@ class BMDOPE:
         """
         Decrypts the given encrypted data using the BMDOPE algorithm.
         """
-        self.current_key = self.key
+        self.__current_key = self.key
         decrypted_data = b''
         
         metadata = decrypt_metadata(encrypted_data, self.key, self.iv)
@@ -57,9 +57,9 @@ class BMDOPE:
         cursor = 0
         for length in metadata:
             slice_bits = binary_data[cursor:cursor + length]
-            decrypted_data += self.decrypt_block(slice_bits, self.current_key)
+            decrypted_data += self.decrypt_block(slice_bits, self.__current_key)
             cursor += length
-            self.current_key = reshuffle(self.current_key)
+            self.__current_key = reshuffle(self.__current_key)
         
         return decrypted_data
     
