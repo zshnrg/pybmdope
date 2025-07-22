@@ -8,60 +8,89 @@ It provides functionalities for encrypting and decrypting data using the BMDOPE 
 from pybmdope.key import split_key, reshuffle
 from pybmdope.metadata import encrypt_metadata, decrypt_metadata
 from pybmdope.util import binary_to_bytes, bytes_to_binary
+
 import os
 
+MAX_32_BIT = 2**32 - 1  # Maximum value for a 32-bit unsigned integer
+MAX_128_BIT = 2**128 - 1  # Maximum value for a 128-bit unsigned integer
+
+class DecryptionError(Exception):
+    """
+    Custom exception raised when decryption fails.
+    
+    This exception is used to indicate that the decryption process has encountered
+    an error, which may be due to an incorrect key or tampered data.
+    """
+    pass
+
 class BMDOPE:
-    def __init__(self, key: bytes, iv: bytes = None):
-        if not isinstance(key, bytes):
-            raise ValueError("Key must be a bytes object.")
-        if len(key) != 16:
-            raise ValueError("Key must be exactly 16 characters long.")
-        if iv is not None and not isinstance(iv, bytes) and len(iv) != 16:
-            raise ValueError("IV must be 16 bytes long if provided.")
+    def __init__(self, key: bytes):
+        """
+        Initialize the BMD-OPE cipher with a 16-byte key.
+        Args:
+            key (bytes): A 16-byte encryption key used for the BMD-OPE cipher.
+        Raises:
+            ValueError: If the key is not bytes type or not exactly 16 bytes long.
+        Attributes:
+            key (bytes): The original encryption key.
+            __current_key (bytes): The current key being used (copy of original key).
+            __BLOCK_SIZE (int): Size of each block in bytes (set to 4).
+            __SHIFT_MASK (int): Bit mask for shifts, using 5 bits (0b11111).
+        """
+        if not isinstance(key, bytes) and len(key) != 16:
+            raise ValueError("Key must be 16 bytes long if provided.")
         
         self.key = key
         self.__current_key = key
-        self.iv = iv if iv is not None else os.urandom(16)
+        
+        self.__BLOCK_SIZE = 4  # Size of each block in bytes
+        self.__SHIFT_MASK = 0b11111  # Mask for shifts (5 bits)
         
     def encrypt(self, data: bytes) -> bytes:
         """
         Encrypts the given data using the BMDOPE algorithm.
         """
         self.__current_key = self.key
-        blocks = [data[i:i+4] for i in range(0, len(data), 4)]
-        
+        # Split from back, so remainder goes to the first block
+        remainder = len(data) % self.__BLOCK_SIZE
+        if remainder == 0:
+            blocks = [data[i:i+self.__BLOCK_SIZE] for i in range(0, len(data), self.__BLOCK_SIZE)]
+        else:
+            blocks = [data[:remainder]] + [data[i:i+self.__BLOCK_SIZE] for i in range(remainder, len(data), self.__BLOCK_SIZE)]
+
         encrypted_blocks = b''
         metadata = []
         
         for block in blocks:
-            encrypted_block = self.encrypt_block(block, self.__current_key)
+            encrypted_block, length = self.encrypt_block(block, self.__current_key)
             encrypted_blocks += encrypted_block
-            metadata.append(len(encrypted_block))
+            metadata.append(length)
             self.__current_key = reshuffle(self.__current_key)
+
+        iv = self.generate_key()
+        encrypted_metadata = encrypt_metadata(metadata, self.key, iv)
         
-        encrypted_metadata = encrypt_metadata(metadata, self.key, self.iv)
-        
-        encrypted_blocks = binary_to_bytes(encrypted_blocks)
-        return encrypted_blocks + encrypted_metadata
+        return encrypted_blocks + encrypted_metadata + iv
         
     def decrypt(self, encrypted_data: bytes) -> bytes:
         """
         Decrypts the given encrypted data using the BMDOPE algorithm.
         """
-        self.__current_key = self.key
-        decrypted_data = b''
-        
-        metadata = decrypt_metadata(encrypted_data, self.key, self.iv)
-        binary_data = bytes_to_binary(encrypted_data)
-        
-        cursor = 0
-        for length in metadata:
-            slice_bits = binary_data[cursor:cursor + length]
-            decrypted_data += self.decrypt_block(slice_bits, self.__current_key)
-            cursor += length
-            self.__current_key = reshuffle(self.__current_key)
-        
-        return decrypted_data
+        try:
+            self.__current_key = self.key
+            decrypted_data = b''
+            iv = encrypted_data[-16:]
+            metadata = decrypt_metadata(encrypted_data[:-16], self.key, iv)
+            
+            for length, i in zip(metadata, range(len(metadata))):
+                block = bytes_to_binary(encrypted_data[i * 16:(i + 1) * 16])
+                slice_bits = block[-length:]
+                decrypted_data += self.decrypt_block(slice_bits, self.__current_key)
+                self.__current_key = reshuffle(self.__current_key)
+            
+            return decrypted_data
+        except Exception as e:
+            raise DecryptionError("Decryption failed. Possibly due to incorrect key or tampered data.") from e
     
     def encrypt_block(self, block: bytes, key: bytes) -> bytes:
         """
@@ -93,13 +122,19 @@ class BMDOPE:
         parts, shifts = split_key(key)
         value = int.from_bytes(block, 'big')
         
+        padding = int(MAX_128_BIT * value / MAX_32_BIT)
+        binary_padding = bin(padding)[2:].zfill(128)
+        
         for i in range(4):
             value += int.from_bytes(parts[i], 'big')
             if i != 3:
-                shift_value = shifts[i] & 0b11111
+                shift_value = shifts[i] & self.__SHIFT_MASK
                 value <<= shift_value
+
+        binary_encrypted = bin(value)[2:]
+        encrypted_block = (binary_padding[0:128 - len(binary_encrypted)] + binary_encrypted).zfill(128)
         
-        return bin(value)[2:].encode()
+        return binary_to_bytes(encrypted_block.encode()), len(binary_encrypted)
 
     def decrypt_block(self, encrypted_value: bytes, key: bytes) -> bytes:
         """
@@ -132,7 +167,7 @@ class BMDOPE:
         
         for i in range(3, -1, -1):
             if i != 3:
-                shift_value = shifts[i] & 0b11111
+                shift_value = shifts[i] & self.__SHIFT_MASK
                 value >>= shift_value
             value -= int.from_bytes(parts[i], 'big')
         

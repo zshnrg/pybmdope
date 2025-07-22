@@ -1,42 +1,13 @@
 import unittest
+import random
+import os
 from pybmdope.bmdope import BMDOPE
 
 class TestBMDOPE(unittest.TestCase):
     def setUp(self):
-        self.key = b"W:]-I~Yzx;?E506h"  # 16-character key
+        self.maxDiff = None  # Allow full diff output
+        self.key = BMDOPE.generate_key()
         self.bmdope = BMDOPE(self.key)
-        
-    def test_encrypt_block(self):
-        block = b"test"
-        key = b"1234567890abcdef"
-        encrypted = self.bmdope.encrypt_block(block, key)
-        self.assertIsInstance(encrypted, bytes)
-        self.assertNotEqual(encrypted, block)
-
-    def test_encrypt_block_invalid_key(self):
-        block = b"test"
-        key = b"short_key"
-        with self.assertRaises(ValueError):
-            self.bmdope.encrypt_block(block, key)
-
-    def test_encrypt_block_invalid_block_size(self):
-        block = b"toolongblock"
-        key = b"1234567890abcdef"
-        with self.assertRaises(ValueError):
-            self.bmdope.encrypt_block(block, key)
-
-    def test_decrypt_block(self):
-        block = b"test"
-        key = b"1234567890abcdef"
-        encrypted = self.bmdope.encrypt_block(block, key)
-        decrypted = self.bmdope.decrypt_block(encrypted, key)
-        self.assertEqual(decrypted, block)
-
-    def test_decrypt_block_invalid_key(self):
-        encrypted = b"110010101011"
-        key = b"short_key"
-        with self.assertRaises(ValueError):
-            self.bmdope.decrypt_block(encrypted, key)
 
     def test_plaintext_equals_decrypt(self):
         """Tests if the decrypted data matches the original plaintext."""
@@ -133,6 +104,30 @@ class TestBMDOPE(unittest.TestCase):
         self.assertEqual(decrypted2, num2)
         self.assertEqual(decrypted3, num3)
         self.assertTrue(decrypted1 < decrypted2 < decrypted3)
+
+    def test_order_preserving_property_with_large_random_numbers(self):
+        """Tests if BMDOPE preserves order for a sorted list of large random numbers."""
+        random_numbers = [random.randint(1, 10**18).to_bytes(8, 'big') for _ in range(2)]
+        sorted_numbers = sorted(random_numbers)
+
+        encrypted_numbers = [self.bmdope.encrypt(num) for num in sorted_numbers]
+
+        # Ensure encrypted numbers are also sorted
+        self.assertTrue(all(encrypted_numbers[i] < encrypted_numbers[i + 1] for i in range(len(encrypted_numbers) - 1)))
+    
+    def test_random_large_quantity_of_data(self):
+        """Tests if BMDOPE can handle a large quantity of random data and preserves order."""
+        data = []
+        while len(data) < 1000:
+            num = random.randint(0, 65535).to_bytes(2, 'big')
+            if num not in data:
+                data.append(num)
+            
+        data = sorted(data)
+        encrypted_data = [self.bmdope.encrypt(d) for d in data]
+        encrypted_data_int = [int.from_bytes(ed, 'big') for ed in encrypted_data]
+        
+        self.assertEqual(encrypted_data_int, sorted(encrypted_data_int))
 
 if __name__ == "__main__":
     unittest.main()

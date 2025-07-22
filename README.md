@@ -6,6 +6,8 @@ BMDOPE (Block Metadata-Driven Order-Preserving Encryption) is a custom encryptio
 
 BMDOPE is designed for scenarios where maintaining the order of encrypted data is critical, such as database indexing or range queries on encrypted data. It achieves this by encrypting data in blocks and using metadata to preserve the order of the blocks during encryption and decryption.
 
+> **Disclaimer**: The order-preserving properties of BMDOPE are currently available for numeric sorting only. Lexicographical ordering is supported only for data with fixed size.
+
 ### Algorithm
 
 1. **Block-Based Encryption**: Data is divided into fixed-size blocks, and each block is encrypted individually using a key.
@@ -46,9 +48,9 @@ This will install the package in editable mode, allowing you to make changes to 
 ```python
 from pybmdope.bmdope import BMDOPE
 
-# Initialize BMDOPE with a 16-character key
-key = b"W:]-I~Yzx;?E506h"
-bmdope = BMDOPE(key)
+# Initialize BMDOPE with generated key and IV
+key = BMDOPE.generate_key()
+bmdope = BMDOPE(key, iv)
 
 # Data to encrypt
 data = b"example data for encryption"
@@ -67,7 +69,7 @@ print(f"Decrypted Data: {decrypted_data.decode('utf-8')}")
 Unit tests are provided for all modules and integration. Run the tests using:
 
 ```bash
-pytest
+python -m unittest discover -s tests
 ```
 
 ## TODO
