@@ -128,6 +128,32 @@ class TestBMDOPE(unittest.TestCase):
         encrypted_data_int = [int.from_bytes(ed, 'big') for ed in encrypted_data]
         
         self.assertEqual(encrypted_data_int, sorted(encrypted_data_int))
+        
+    def test_bound(self):
+        """Tests if the encrypt_bound method correctly handles bounds."""
+        data = random.randint(1, 10**18).to_bytes(8, 'big')
+        encrypted_data = self.bmdope.encrypt(data)
+        lower_bound, upper_bound = self.bmdope.encrypt_bound(data)
+
+        # Check if the bounds are valid encrypted data
+        self.assertTrue(isinstance(lower_bound, bytes))
+        self.assertTrue(isinstance(upper_bound, bytes))
+        
+        # Check if lower bound is less than or equal to upper bound
+        lower_bound_int = int.from_bytes(lower_bound, 'big')
+        upper_bound_int = int.from_bytes(upper_bound, 'big')
+        self.assertLessEqual(lower_bound_int, upper_bound_int)
+        
+        # Check if the encrypted data is within the bounds
+        encrypted_data_int = int.from_bytes(encrypted_data, 'big')
+        self.assertGreaterEqual(encrypted_data_int, lower_bound_int)
+        self.assertLessEqual(encrypted_data_int, upper_bound_int)
+        
+        # Check if data - 1 is not within the bounds
+        data_minus_one = (int.from_bytes(data, 'big') - 1).to_bytes(8, 'big')
+        encrypted_data_minus_one = self.bmdope.encrypt(data_minus_one)
+        encrypted_data_minus_one_int = int.from_bytes(encrypted_data_minus_one, 'big')
+        self.assertLess(encrypted_data_minus_one_int, lower_bound_int)
 
 if __name__ == "__main__":
     unittest.main()

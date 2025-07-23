@@ -51,7 +51,6 @@ class BMDOPE:
         Encrypts the given data using the BMDOPE algorithm.
         """
         self.__current_key = self.key
-        # Split from back, so remainder goes to the first block
         remainder = len(data) % self.__BLOCK_SIZE
         if remainder == 0:
             blocks = [data[i:i+self.__BLOCK_SIZE] for i in range(0, len(data), self.__BLOCK_SIZE)]
@@ -91,6 +90,44 @@ class BMDOPE:
             return decrypted_data
         except Exception as e:
             raise DecryptionError("Decryption failed. Possibly due to incorrect key or tampered data.") from e
+        
+    def encrypt_bound(self, data: bytes, lower_bound: bool = True, upper_bound: bool = True) -> tuple[bytes, bytes]:
+        """
+        Encrypts the given data with metadata ignored for bounds to provide a range query.
+        Args:
+            data (bytes): The data to be encrypted.
+            lower_bound (bool): If True, includes the lower bound in the encryption.
+            upper_bound (bool): If True, includes the upper bound in the encryption.
+        Returns:
+            tuple[bytes, bytes]: A tuple containing upper and lower bounds of the encrypted data.
+        Raises:
+            ValueError: If the data is not bytes type or if the bounds are not boolean.
+        """
+        
+        self.__current_key = self.key
+        remainder = len(data) % self.__BLOCK_SIZE
+        if remainder == 0:
+            blocks = [data[i:i+self.__BLOCK_SIZE] for i in range(0, len(data), self.__BLOCK_SIZE)]
+        else:
+            blocks = [data[:remainder]] + [data[i:i+self.__BLOCK_SIZE] for i in range(remainder, len(data), self.__BLOCK_SIZE)]
+
+        encrypted_blocks = b''
+        metadata = []
+        
+        for block in blocks:
+            encrypted_block, length = self.encrypt_block(block, self.__current_key)
+            encrypted_blocks += encrypted_block
+            metadata.append(length)
+            self.__current_key = reshuffle(self.__current_key)
+
+        iv = self.generate_key()
+        footer = encrypt_metadata(metadata, self.key, iv) + iv
+        footer_length = len(footer)
+        
+        lower_bound = encrypted_blocks + (b'\x00' * footer_length if lower_bound else footer)
+        upper_bound = encrypted_blocks + (b'\xff' * footer_length if upper_bound else footer)
+        
+        return lower_bound, upper_bound
     
     def encrypt_block(self, block: bytes, key: bytes) -> bytes:
         """
