@@ -20,6 +20,7 @@ BMDOPE is designed for scenarios where maintaining the order of encrypted data i
 - **Encrypted Databases**: Perform range queries or sorting operations on encrypted data without decrypting it.
 - **Secure Indexing**: Maintain the order of encrypted data for efficient indexing and retrieval.
 - **Data Transmission**: Securely transmit ordered data while preserving its structure.
+- **Equality Checks**: Use `encrypt_bound` to generate upper and lower bounds for equality checks. Since BMDOPE uses non-deterministic encryption (randomized IVs), the same plaintext does not produce the same ciphertext. By encrypting the bounds, you can perform range queries to match the encrypted data.
 
 ## Installation
 
