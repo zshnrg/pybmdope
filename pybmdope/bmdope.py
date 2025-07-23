@@ -78,15 +78,15 @@ class BMDOPE:
         try:
             self.__current_key = self.key
             decrypted_data = b''
-            iv = encrypted_data[-16:]
-
+            
             # Pad with zeros at the front if needed
             padding_needed = (16 - (len(encrypted_data) % 16)) % 16
             if padding_needed > 0:
                 encrypted_data = b'\x00' * padding_needed + encrypted_data
-
-            # Recalculate positions after padding
-            encrypted_blocks_end = len(encrypted_data) - 16 - len(encrypt_metadata(metadata, self.key, iv))
+                
+            iv = encrypted_data[-16:]
+            metadata = decrypt_metadata(encrypted_data[:-16], self.key, iv)
+            
             for length, i in zip(metadata, range(len(metadata))):
                 block = bytes_to_binary(encrypted_data[i * 16:(i + 1) * 16])
                 slice_bits = block[-length:]
